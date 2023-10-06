@@ -1,0 +1,1 @@
+./experiments/2023-10-06 14:25_128x6_silu_Glorot normal_numdom2000_rs10000
