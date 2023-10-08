@@ -22,6 +22,7 @@ def parse_arguments():
     parser.add_argument('--checkpoint', type=str, default=None,
                         help='Model checkpoint for prediction or continuation.')
     parser.add_argument('--config', type=str, default="config.json", help='Path to the configuration file.')
+    parser.add_argument('--gpu', type=int, default=None, help='GPU ID to use.')
     return parser.parse_args()
 """
 def load_config(config_path="config.json"):
@@ -87,7 +88,7 @@ def define_model(config):
     num_domain = config["DATA"]["num_domain"]
     num_boundary = config["DATA"]["num_boundary"]
     resampling_period = config["DATA"]["resampling_period"]
-    batch_size = config["DATA"]["batch_size"]
+    
 
     
     
@@ -107,7 +108,7 @@ def define_model(config):
     data_list = [X_train, X_test, v_train, v_test]
     # Initialize the model
     geomtime = pinn.geotime()
-    observe_v = dde.PointSetBC(X_train, v_train,batch_size=batch_size, component=0)
+    observe_v = dde.PointSetBC(X_train, v_train, component=0)
     ic = pinn.IC(X_train, v_train)
     bc = pinn.BC(geomtime)
     input_data = [bc, ic, observe_v]
@@ -152,6 +153,16 @@ def train_model(model, config,save_path,path_directory)-> None:
     
 
 def run_tuning(config):
+    # Initialize CUDA and other configurations
+    torch.cuda.empty_cache()
+    dde.config.set_random_seed(42)
+    dde.config.set_default_float("float32")
+    # Set device to argument --gpu
+    device = torch.device(f"cuda:{args.gpu}")
+    torch.cuda.set_device(device)
+    dde.config.default_device=device
+    #Print device
+    print("Device:", torch.cuda.current_device())
     # Define the model
     model,net,pinn,data, save_path,path_directory = define_model(config)
     # Setup logger
@@ -161,14 +172,14 @@ def run_tuning(config):
     logging.info("Experiment started.")
     logging.info(f"Configuration: {config}")
     lr = config["TRAINING"]["lr_phase1"]
-    weights = config["TRAINING"]["weights1"]
+    weights = config["TRAINING"]["weights2"]
     epochs= config["TRAINING"]["epochs_phase1"]
     resampling_period = config["DATA"]["resampling_period"]
     resampler = dde.callbacks.PDEPointResampler(period=resampling_period,pde_points=True,bc_points=True)
 
     model.compile("adam", lr=lr, loss_weights=weights)
     losshistory, train_state = model.train(
-            iterations=epochs, model_save_path=save_path,callbacks=[resampler])
+            iterations=1, model_save_path=save_path,callbacks=[resampler])
     # Load the data and scale
     X, X_boundary, v = pinn.get_data()
     scaler = MinMaxScaler()
@@ -178,6 +189,15 @@ def run_tuning(config):
 
     #Predict on test set
     v_pred_test=model.predict(X_test)[:, 0]
+    # Check their shapes
+    print("Shape of v_test:", v_test.shape)
+    print("Shape of v_pred_test:", v_pred_test.shape)
+
+    # If they are not 1D, reshape or index them
+    if len(v_test.shape) > 1:
+        v_test = v_test.reshape(-1)
+    if len(v_pred_test.shape) > 1:
+        v_pred_test = v_pred_test.reshape(-1)
 
     #RMSE test
     RMSE = np.sqrt(np.sum((v_test - v_pred_test)**2)/v_test.shape[0])
@@ -186,7 +206,7 @@ def run_tuning(config):
     with open( "RMSE.txt", "a+") as f:
         f.write(f"RMSE: {RMSE}, Configuration: {config}\n")
     
-    
+
 
 
 
@@ -206,7 +226,7 @@ def main(args):
     # Initialize CUDA and other configurations
     torch.cuda.empty_cache()
     dde.config.set_random_seed(42)
-    dde.config.set_default_float("float64")
+    dde.config.set_default_float("float32")
     best_device_id = get_gpu_with_most_memory()
     #Set torch device
     device = torch.device(f"cuda:{best_device_id}")

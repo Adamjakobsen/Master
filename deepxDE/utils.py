@@ -2,6 +2,10 @@ import h5py
 
 import numpy as np
 import GPUtil
+import logging
+import os
+import json
+from datetime import datetime
 
 
 def get_data():
@@ -69,3 +73,31 @@ def get_gpu_with_most_memory():
     print(f"Device ID: {best_device.id}, Free Memory: {best_device.memoryFree} MB")
     
     return best_device.id
+
+def make_directory(config):
+    now = datetime.now()
+    now = now.strftime("%Y-%m-%d %H:%M")
+    name = f"{now}_{config['TRAINING']['n_neurons']}x{config['TRAINING']['n_layers']}_{config['TRAINING']['activation']}_{config['TRAINING']['initializer']}_numdom{config['DATA']['num_domain']}_rs{config['DATA']['resampling_period']}"
+    path_directory = os.path.join("./experiments/", name)
+    if not os.path.exists(path_directory):
+        os.makedirs(path_directory)
+    # After path_directory is created
+    with open("temp_path_directory.txt", "w") as f:
+        f.write(path_directory)
+    config['path_directory'] = path_directory
+    save_config(config, path_directory)
+    return path_directory
+
+def save_config(config, path):
+    with open(os.path.join(path, 'config.json'), 'w') as f:
+        json.dump(config, f, indent=4)
+
+def setup_logger(log_file):
+    logging.basicConfig(
+        level=logging.INFO,  # Change to DEBUG for detailed logs
+        format="%(asctime)s [%(levelname)s]: %(message)s",
+        handlers=[
+            logging.FileHandler(log_file),
+            logging.StreamHandler()
+        ]
+    )

@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.animation as animation
 import matplotlib.tri as tri
 from sklearn.preprocessing import MinMaxScaler
-from utils import get_data
+from utils import *
 
 from PIL import Image
 import io

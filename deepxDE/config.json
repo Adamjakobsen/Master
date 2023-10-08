@@ -2,7 +2,7 @@
     "TRAINING": {
         "n_neurons": 128,
         "n_layers": 6,
-        "activation": "silu",
+        "activation": "tanh",
         "initializer": "Glorot normal",
         "lr_phase1": 0.0005,
         "lr_phase2": 0.0005,
@@ -13,10 +13,8 @@
     },
     "DATA": {
         "test_size": 0.8,
-        "num_domain": 2000,
+        "num_domain": 20000,
         "num_boundary": 1000,
-        "resampling_period":10000,
-        "batch_size": 1024
-
+        "resampling_period":10000
     }
 }
