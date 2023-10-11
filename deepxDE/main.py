@@ -17,8 +17,8 @@ from utils import *
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='PINN model for 2D PDEs.')
-    parser.add_argument('mode', type=str, choices=['train', 'predict', 'continue','tuning', 'make_dir'],
-                        help='Mode to run the model: train, predict, continue,tuning, or make_dir.')
+    parser.add_argument('mode', type=str, choices=['train','train_adaptive', 'predict', 'continue','tuning', 'make_dir'],
+                        help='Mode to run the model: train,train_adaptive, predict, continue,tuning, or make_dir.')
     parser.add_argument('--checkpoint', type=str, default=None,
                         help='Model checkpoint for prediction or continuation.')
     parser.add_argument('--config', type=str, default="config.json", help='Path to the configuration file.')
@@ -124,7 +124,7 @@ def define_model(config):
     
 
     model = dde.Model(data, net)
-    return model,net,pinn,data, save_path,path_directory
+    return model,net,pinn,data,geomtime,PDE, save_path,path_directory
 
 def train_model(model, config,save_path,path_directory)-> None:
     #Phase 1: Train on data only
@@ -149,6 +149,57 @@ def train_model(model, config,save_path,path_directory)-> None:
         iterations=epochs_phase2, model_save_path=save_path,callbacks=[resampler])
     dde.saveplot(losshistory, train_state, issave=True, isplot=True,output_dir=path_directory)
     model.save(save_path)
+
+def train_model_adaptive_residual(pinn,model,geomtime,data,pde, config,save_path,path_directory)-> None:
+    #Phase 1: Train on data only
+    lr_phase1 = config["TRAINING"]["lr_phase1"]
+    weights1 = config["TRAINING"]["weights1"]
+    epochs_phase1 = config["TRAINING"]["epochs_phase1"]
+    resampling_period = config["DATA"]["resampling_period"]
+    resampler = dde.callbacks.PDEPointResampler(period=resampling_period,pde_points=True,bc_points=True)
+
+    model.compile("adam", lr=lr_phase1, loss_weights=weights1)
+    losshistory, train_state = model.train(
+            iterations=epochs_phase1, model_save_path=save_path,callbacks=[resampler])
+
+    dde.saveplot(losshistory, train_state, issave=True, isplot=True,output_dir=path_directory)
+    #Adaptive residual based learning
+    lr_phase1 = config["TRAINING"]["lr_phase1"]
+    weights2 = config["TRAINING"]["weights2"]
+    epochs_phase1 = config["TRAINING"]["epochs_phase1"]
+    resampling_period = config["DATA"]["resampling_period"]
+    resampler = dde.callbacks.PDEPointResampler(period=resampling_period,pde_points=True,bc_points=True)
+    X_points_colocation = geomtime.random_points(100000)
+    err=1
+    while err>0.01:
+        f = model.predict(X_points_colocation, operator=pde)
+        
+        
+        err_eq = np.abs(f)
+        err = np.mean(np.abs(err_eq))
+        x_id = np.argmax(err_eq)
+        print("Mean residual: %.3e" % (err))
+        print("Adding new point:", X_points_colocation[x_id], "\n")
+        data.add_anchors(X_points_colocation[x_id])
+        early_stopping = dde.callbacks.EarlyStopping(min_delta=1e-4, patience=2000)
+        model.compile("adam", lr=lr_phase1, loss_weights=weights2)
+        losshistory,train_state=model.train(iterations=10000, disregard_previous_best=True, callbacks=[early_stopping])
+    
+    dde.saveplot(losshistory, train_state, issave=True, isplot=True,output_dir=path_directory)
+    model.save(save_path)
+    #Phase 2: Train on data, BC, IC and PDE+ODE
+    lr_phase2 = config["TRAINING"]["lr_phase2"]
+    epochs_phase2 = config["TRAINING"]["epochs_phase2"]
+    weights2 = config["TRAINING"]["weights2"]
+    model.compile("adam", lr=lr_phase2, loss_weights=weights2)
+    losshistory, train_state = model.train(
+        iterations=epochs_phase2, model_save_path=save_path,callbacks=[resampler])
+    dde.saveplot(losshistory, train_state, issave=True, isplot=True,output_dir=path_directory)
+    model.save(save_path)
+
+
+
+
 
     
 
@@ -203,8 +254,9 @@ def run_tuning(config):
     RMSE = np.sqrt(np.sum((v_test - v_pred_test)**2)/v_test.shape[0])
     print("RMSE test", RMSE)
     #Save RMSE and configuration to txt file. Create file if needed, else append
-    with open( "RMSE.txt", "a+") as f:
-        f.write(f"RMSE: {RMSE}, Configuration: {config}\n")
+    #with open( "RMSE.txt", "a+") as f:
+    #    f.write(f"RMSE: {RMSE}, Configuration: {config}\n")
+    
     
 
 
@@ -237,7 +289,7 @@ def main(args):
     
 
     # Define the model
-    model,net,pinn,data, save_path,path_directory = define_model(config)
+    model,net,pinn,data,geomtime,PDE, save_path,path_directory = define_model(config)
     # Setup logger
     log_file = os.path.join(os.path.dirname(save_path), "experiment.log")
     setup_logger(log_file)
@@ -248,6 +300,9 @@ def main(args):
     if args.mode == "train":
         # Train the model
         train_model(model, config, save_path,path_directory)
+    
+    elif args.mode == "train_adaptive":
+        train_model_adaptive_residual(pinn,model,geomtime,data,PDE, config,save_path,path_directory)
     
     elif args.mode == "predict":
         torch.device("cpu")

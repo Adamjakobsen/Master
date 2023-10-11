@@ -1,1 +1,1 @@
-./experiments/2023-10-07 18:03_128x6_silu_Glorot normal_numdom20000_rs10000
+./experiments/2023-10-11 09:30_128x6_tanh_Glorot normal_numdom70000_rs20000

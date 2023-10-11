@@ -97,21 +97,25 @@ class PINN():
             (-W - self.k*V*(V-self.a-1))/self.t_norm
         return [PDE, ODE]
     
-    def get_data(self):
+    def get_data(self, slice_xy=2, slice_t=10,t_start=0):
         from utils import get_data, get_boundary
         from sklearn.preprocessing import StandardScaler
         from sklearn.preprocessing import MinMaxScaler
         scaler = MinMaxScaler()
         vertices, triangles, vm = get_data()
+        n_timepoints=vm.shape[0]
+        dt=5
+        t_end=(n_timepoints-1)*dt
+
 
         self.vertices = vertices
         self.triangles = triangles
 
         print("self.triangles shape:", self.triangles.shape)
-        self.vm = vm[::10, ::2]
-        x = vertices[::2, 0]
-        y = vertices[::2, 1]
-        t = np.linspace(0, 600, 121)[::10]
+        self.vm = vm[::slice_t, ::slice_xy]
+        x = vertices[::slice_xy, 0]
+        y = vertices[::slice_xy, 1]
+        t = np.linspace(t_start, t_end, n_timepoints)[::slice_t]
 
         X, T = np.meshgrid(x, t)
         Y, T = np.meshgrid(y, t)

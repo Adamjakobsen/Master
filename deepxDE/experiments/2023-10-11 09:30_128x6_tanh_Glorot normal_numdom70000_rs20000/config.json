@@ -1,0 +1,35 @@
+{
+    "TRAINING": {
+        "n_neurons": 128,
+        "n_layers": 6,
+        "activation": "tanh",
+        "initializer": "Glorot normal",
+        "lr_phase1": 0.0008,
+        "lr_phase2": 0.0008,
+        "epochs_phase1": 15000,
+        "epochs_phase2": 150000,
+        "weights1": [
+            0,
+            0,
+            0,
+            1,
+            1
+        ],
+        "weights2": [
+            1,
+            1,
+            1,
+            1,
+            1
+        ]
+    },
+    "DATA": {
+        "test_size": 0.8,
+        "num_domain": 70000,
+        "num_boundary": 2500,
+        "resampling_period": 20000,
+        "xy_slice": 2,
+        "t_slice": 1
+    },
+    "path_directory": "./experiments/2023-10-11 09:30_128x6_tanh_Glorot normal_numdom70000_rs20000"
+}

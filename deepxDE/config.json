@@ -4,8 +4,8 @@
         "n_layers": 6,
         "activation": "tanh",
         "initializer": "Glorot normal",
-        "lr_phase1": 0.0005,
-        "lr_phase2": 0.0005,
+        "lr_phase1": 0.0008,
+        "lr_phase2": 0.0008,
         "epochs_phase1": 15000,
         "epochs_phase2": 150000,
         "weights1": [0,0,0,1,1],
@@ -13,8 +13,10 @@
     },
     "DATA": {
         "test_size": 0.8,
-        "num_domain": 20000,
-        "num_boundary": 1000,
-        "resampling_period":10000
+        "num_domain": 70000,
+        "num_boundary": 2500,
+        "resampling_period":20000,
+        "xy_slice": 2,
+        "t_slice":1
     }
 }

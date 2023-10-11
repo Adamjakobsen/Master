@@ -1,0 +1,124 @@
+Using backend: pytorch
+Other supported backends: tensorflow.compat.v1, tensorflow, jax, paddle.
+paddle supports more examples now and is recommended.
+2023-10-11 09:30:28,176 [INFO]: Experiment started.
+2023-10-11 09:30:28,176 [INFO]: Configuration: {'TRAINING': {'n_neurons': 128, 'n_layers': 6, 'activation': 'tanh', 'initializer': 'Glorot normal', 'lr_phase1': 0.0008, 'lr_phase2': 0.0008, 'epochs_phase1': 15000, 'epochs_phase2': 150000, 'weights1': [0, 0, 0, 1, 1], 'weights2': [1, 1, 1, 1, 1]}, 'DATA': {'test_size': 0.8, 'num_domain': 70000, 'num_boundary': 2500, 'resampling_period': 20000, 'xy_slice': 2, 't_slice': 1}, 'path_directory': './experiments/2023-10-11 09:30_128x6_tanh_Glorot normal_numdom70000_rs20000'}
+Set the default float type to float32
+Device ID: 1, Free Memory: 34002.0 MB
+self.triangles shape: (141944, 3)
+Compiling model...
+'compile' took 0.000386 s
+
+Training model...
+
+Step      Train loss                                            Test loss                                             Test metric
+0         [0.00e+00, 0.00e+00, 0.00e+00, 3.63e+03, 3.63e+03]    [0.00e+00, 0.00e+00, 0.00e+00, 3.63e+03, 3.63e+03]    []  
+1000      [0.00e+00, 0.00e+00, 0.00e+00, 2.09e+03, 2.09e+03]    [0.00e+00, 0.00e+00, 0.00e+00, 2.09e+03, 2.09e+03]    []  
+2000      [0.00e+00, 0.00e+00, 0.00e+00, 2.09e+03, 2.09e+03]    [0.00e+00, 0.00e+00, 0.00e+00, 2.09e+03, 2.09e+03]    []  
+3000      [0.00e+00, 0.00e+00, 0.00e+00, 1.75e+02, 1.75e+02]    [0.00e+00, 0.00e+00, 0.00e+00, 1.75e+02, 1.75e+02]    []  
+4000      [0.00e+00, 0.00e+00, 0.00e+00, 1.23e+01, 1.23e+01]    [0.00e+00, 0.00e+00, 0.00e+00, 1.23e+01, 1.23e+01]    []  
+5000      [0.00e+00, 0.00e+00, 0.00e+00, 8.47e+00, 8.47e+00]    [0.00e+00, 0.00e+00, 0.00e+00, 8.47e+00, 8.47e+00]    []  
+6000      [0.00e+00, 0.00e+00, 0.00e+00, 6.48e+00, 6.48e+00]    [0.00e+00, 0.00e+00, 0.00e+00, 6.48e+00, 6.48e+00]    []  
+7000      [0.00e+00, 0.00e+00, 0.00e+00, 6.02e+00, 6.02e+00]    [0.00e+00, 0.00e+00, 0.00e+00, 6.02e+00, 6.02e+00]    []  
+8000      [0.00e+00, 0.00e+00, 0.00e+00, 5.49e+00, 5.49e+00]    [0.00e+00, 0.00e+00, 0.00e+00, 5.49e+00, 5.49e+00]    []  
+9000      [0.00e+00, 0.00e+00, 0.00e+00, 4.60e+00, 4.60e+00]    [0.00e+00, 0.00e+00, 0.00e+00, 4.60e+00, 4.60e+00]    []  
+10000     [0.00e+00, 0.00e+00, 0.00e+00, 2.79e+00, 2.79e+00]    [0.00e+00, 0.00e+00, 0.00e+00, 2.79e+00, 2.79e+00]    []  
+11000     [0.00e+00, 0.00e+00, 0.00e+00, 1.65e+00, 1.65e+00]    [0.00e+00, 0.00e+00, 0.00e+00, 1.65e+00, 1.65e+00]    []  
+12000     [0.00e+00, 0.00e+00, 0.00e+00, 1.14e+00, 1.14e+00]    [0.00e+00, 0.00e+00, 0.00e+00, 1.14e+00, 1.14e+00]    []  
+13000     [0.00e+00, 0.00e+00, 0.00e+00, 9.38e-01, 9.38e-01]    [0.00e+00, 0.00e+00, 0.00e+00, 9.38e-01, 9.38e-01]    []  
+14000     [0.00e+00, 0.00e+00, 0.00e+00, 7.60e-01, 7.60e-01]    [0.00e+00, 0.00e+00, 0.00e+00, 7.60e-01, 7.60e-01]    []  
+15000     [0.00e+00, 0.00e+00, 0.00e+00, 5.63e-01, 5.63e-01]    [0.00e+00, 0.00e+00, 0.00e+00, 5.63e-01, 5.63e-01]    []  
+
+Best model at step 15000:
+  train loss: 1.13e+00
+  test loss: 1.13e+00
+  test metric: []
+
+Epoch 15000: saving model to ./experiments/2023-10-11 09:30_128x6_tanh_Glorot normal_numdom70000_rs20000/model-15000.pt ...
+
+'train' took 2642.867050 s
+
+Saving loss history to ./experiments/2023-10-11 09:30_128x6_tanh_Glorot normal_numdom70000_rs20000/loss.dat ...
+Saving training data to ./experiments/2023-10-11 09:30_128x6_tanh_Glorot normal_numdom70000_rs20000/train.dat ...
+Saving test data to ./experiments/2023-10-11 09:30_128x6_tanh_Glorot normal_numdom70000_rs20000/test.dat ...
+Mean residual: 6.945e-01
+Adding new point: [47328.645   5015.8726   516.4624] 
+
+Compiling model...
+'compile' took 0.000166 s
+
+Training model...
+
+Step      Train loss                                            Test loss                                             Test metric
+15000     [5.11e+00, 3.98e-03, 2.62e-04, 5.63e-01, 5.63e-01]    [5.11e+00, 3.98e-03, 2.62e-04, 5.63e-01, 5.63e-01]    []  
+16000     [2.24e-03, 1.11e-03, 1.60e-04, 7.67e-01, 7.67e-01]    [2.24e-03, 1.11e-03, 1.60e-04, 7.67e-01, 7.67e-01]    []  
+17000     [1.64e-03, 1.11e-03, 7.98e-04, 7.73e-01, 7.73e-01]    [1.64e-03, 1.11e-03, 7.98e-04, 7.73e-01, 7.73e-01]    []  
+18000     [1.22e-03, 1.10e-03, 4.49e-06, 4.48e-01, 4.48e-01]    [1.22e-03, 1.10e-03, 4.49e-06, 4.48e-01, 4.48e-01]    []  
+19000     [1.39e-03, 9.67e-04, 9.78e-05, 9.78e-01, 9.78e-01]    [1.39e-03, 9.67e-04, 9.78e-05, 9.78e-01, 9.78e-01]    []  
+20000     [1.28e-03, 9.99e-04, 1.20e-05, 5.98e-01, 5.98e-01]    [1.28e-03, 9.99e-04, 1.20e-05, 5.98e-01, 5.98e-01]    []  
+Epoch 20000: early stopping
+
+Best model at step 18000:
+  train loss: 8.99e-01
+  test loss: 8.99e-01
+  test metric: []
+
+'train' took 880.541884 s
+
+Mean residual: 2.485e-02
+Adding new point: [26653.66     2193.9768    454.84766] 
+
+Compiling model...
+'compile' took 0.000170 s
+
+Training model...
+
+Step      Train loss                                            Test loss                                             Test metric
+20000     [1.39e-03, 1.00e-03, 1.20e-05, 5.98e-01, 5.98e-01]    [1.28e-03, 9.99e-04, 1.20e-05, 5.98e-01, 5.98e-01]    []  
+21000     [9.81e-04, 9.53e-04, 2.84e-05, 3.56e-01, 3.56e-01]    [9.81e-04, 9.53e-04, 2.84e-05, 3.56e-01, 3.56e-01]    []  
+22000     [1.21e-03, 8.76e-04, 9.39e-05, 4.23e-01, 4.23e-01]    [1.21e-03, 8.77e-04, 9.39e-05, 4.23e-01, 4.23e-01]    []  
+23000     [1.37e-03, 9.34e-04, 1.35e-04, 3.21e-01, 3.21e-01]    [1.37e-03, 9.34e-04, 1.35e-04, 3.21e-01, 3.21e-01]    []  
+24000     [9.52e-04, 7.52e-04, 5.30e-05, 1.28e+00, 1.28e+00]    [9.52e-04, 7.52e-04, 5.30e-05, 1.28e+00, 1.28e+00]    []  
+25000     [8.87e-04, 6.95e-04, 4.72e-05, 5.54e-01, 5.54e-01]    [8.87e-04, 6.95e-04, 4.72e-05, 5.54e-01, 5.54e-01]    []  
+Epoch 25000: early stopping
+
+Best model at step 23000:
+  train loss: 6.45e-01
+  test loss: 6.45e-01
+  test metric: []
+
+'train' took 880.041001 s
+
+Mean residual: 1.990e-02
+Adding new point: [24380.895   3513.786    592.0047] 
+
+Compiling model...
+'compile' took 0.000182 s
+
+Training model...
+
+Step      Train loss                                            Test loss                                             Test metric
+25000     [9.84e-04, 6.95e-04, 4.72e-05, 5.54e-01, 5.54e-01]    [8.87e-04, 6.95e-04, 4.72e-05, 5.54e-01, 5.54e-01]    []  
+26000     [8.64e-04, 6.96e-04, 3.32e-05, 3.04e-01, 3.04e-01]    [8.64e-04, 6.96e-04, 3.32e-05, 3.04e-01, 3.04e-01]    []  
+27000     [8.31e-04, 6.91e-04, 1.00e-04, 4.07e-01, 4.07e-01]    [8.31e-04, 6.91e-04, 1.00e-04, 4.07e-01, 4.07e-01]    []  
+28000     [8.23e-04, 6.06e-04, 1.14e-04, 3.98e-01, 3.98e-01]    [8.24e-04, 6.06e-04, 1.14e-04, 3.98e-01, 3.98e-01]    []  
+Epoch 28000: early stopping
+
+Best model at step 26000:
+  train loss: 6.10e-01
+  test loss: 6.10e-01
+  test metric: []
+
+'train' took 528.268219 s
+
+Mean residual: 1.856e-02
+Adding new point: [22367.879   11457.944     460.09412] 
+
+Compiling model...
+'compile' took 0.000159 s
+
+Training model...
+
+Step      Train loss                                            Test loss                                             Test metric
+28000     [8.42e-04, 6.06e-04, 1.14e-04, 3.98e-01, 3.98e-01]    [8.24e-04, 6.06e-04, 1.14e-04, 3.98e-01, 3.98e-01]    []  
+29000     [7.61e-04, 5.60e-04, 3.80e-05, 2.19e-01, 2.19e-01]    [7.61e-04, 5.60e-04, 3.80e-05, 2.19e-01, 2.19e-01]    []  
