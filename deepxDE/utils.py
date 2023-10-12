@@ -6,6 +6,38 @@ import logging
 import os
 import json
 from datetime import datetime
+import seaborn as sns
+from matplotlib.ticker import ScalarFormatter
+import matplotlib.pyplot as plt
+
+def set_plot_env():
+    """
+    Function for setting the plotting environment equal for all plots
+    """
+
+    context = {'font.size': 25.0,
+                'axes.labelsize': 25.0,
+                'axes.titlesize': 25.0,
+                'xtick.labelsize': 25.0,
+                'ytick.labelsize': 25.0,
+                'legend.fontsize': 25.0,
+                'legend.title_fontsize': None,
+                'axes.linewidth': 0.8,
+                'grid.linewidth': 0.8,
+                'lines.linewidth': 1.5,
+                'lines.markersize': 6.0,
+                'patch.linewidth': 1.0,
+                'xtick.major.width': 0.8,
+                'ytick.major.width': 0.8,
+                'xtick.minor.width': 0.6,
+                'ytick.minor.width': 0.6,
+                'xtick.major.size': 3.5,
+                'ytick.major.size': 3.5,
+                'xtick.minor.size': 2.0,
+                'ytick.minor.size': 2.0}
+
+    plt.rcParams['text.usetex'] = False
+    sns.set_theme(context=context, style="whitegrid", palette="colorblind", font="sans-serif", font_scale=1)
 
 
 def get_data():

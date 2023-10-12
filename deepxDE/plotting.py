@@ -1,3 +1,4 @@
+import argparse
 import matplotlib.pyplot as plt
 import pylab
 import numpy as np
@@ -9,20 +10,25 @@ import deepxde as dde
 from heartpinn import CustomPointCloud, PINN
 from utils import *
 
+def parse_arguments():
+    parser = argparse.ArgumentParser(description='Plotting functions for the PINN model.')
 
-def plot_animation(pinn,model,frames,experiment_path,filename):
+
+
+
+def plot_animation(pinn,model,frames,experiment_path,filename)->None:
     X,X_boundary,v =pinn.get_data()
     scaler = MinMaxScaler()
     X_scaled = scaler.fit_transform(X)
     vertices = pinn.vertices
     triangles = pinn.triangles
-
+    micro_to_milli = 1e-3
     x=vertices[:,0]
     y=vertices[:,1]
-    triang = tri.Triangulation(x, y, triangles)
-    t=np.linspace(0,2,frames)
+    triang = tri.Triangulation(x*micro_to_milli, y*micro_to_milli, triangles)
+    t=np.linspace(5/frames*3*2,3,frames)
 
-    t_init = np.ones(x.shape)*t[1]
+    t_init = np.ones(x.shape)*t[0]
     X_data_init = x.reshape(-1, 1)
     Y_data_init = y.reshape(-1, 1)
     scaler_x = MinMaxScaler()
@@ -51,25 +57,52 @@ def plot_animation(pinn,model,frames,experiment_path,filename):
     def update_plot(frame,plot):
         v_pred = update_scalar_field(frame)
         plot.set_array(v_pred)
-        ax.set_title(f"t = {t[frame]:.2f} ms")
+        plot.set_clim(v_pred.min(),v_pred.max())
+        ax.set_title(f"t = {frame*5/2} ms")
         return plot,
 
 
-    micro_to_milli = 1e-3
-
-    fig,ax = plt.subplots()
+    fig,ax = plt.subplots(figsize=(12,10))
+    ax.grid(False)
     ax.set_aspect('equal')
-    plot = ax.tripcolor(triang,v_init,shading='gouraud', cmap=plt.cm.jet)
-    plt.colorbar(plot,label = "vm")
-    plt.xlabel("x")
-    plt.ylabel("y")
+    plot = ax.tripcolor(triang,v_init,shading='gouraud', cmap=plt.cm.cividis)
+    plt.colorbar(plot,label = "vm [mV]")
+    plt.xlabel(r"x [mm]")
+    plt.ylabel(r"y [mm]")
 
     ani = animation.FuncAnimation(
-        fig, update_plot, frames=frames, fargs=(plot,), interval=1, blit=True)
+        fig, update_plot, frames=frames, fargs=(plot,), interval=2, blit=True)
     path = os.path.join(experiment_path,filename)
-    ani.save(path,writer=animation.FFMpegWriter(fps=10))
+    ani.save(path,writer=animation.FFMpegWriter(fps=30))
 
-    return 0
+    
+
+def plot_losses(experiment_path)->None:
+    #Load train.dat
+
+    train = np.loadtxt(os.path.join(experiment_path,"train_loss.txt"),skiprows=1)
+    print(train.shape)
+    epochs = train[:,0]
+    loss_pde = train[:,1]
+    loss_ode = train[:,2]
+    loss_bc = train[:,3]
+    loss_data = train[:,5]
+    idx_not_zero = np.where(loss_pde > 0)
+    
+
+    plt.figure(figsize=(12,10))
+
+    plt.plot(epochs[idx_not_zero],loss_pde[idx_not_zero],label=r"$\mathcal{L}_{V}$")
+    plt.plot(epochs[idx_not_zero],loss_ode[idx_not_zero],label=r"$\mathcal{L}_{W}$")
+    plt.plot(epochs[idx_not_zero],loss_bc[idx_not_zero],label=r"$\mathcal{L}_{\partial \Omega}$")
+    plt.plot(epochs,loss_data,label=r"$\mathcal{L}_{data}$")
+    plt.xlabel("Epochs")
+    plt.ylabel(r"$\mathcal{L}$")
+    plt.yscale("log")
+    plt.legend()
+    plt.savefig(os.path.join(experiment_path,"losses.png"))
+    
+
 
 
 def get_model(config):
@@ -115,26 +148,21 @@ def get_model(config):
     return model,net,pinn
 
 def main():
+    set_plot_env()
     
-    #2023-10-06 12:43_128x5_tanh_Glorot normal_numdom2000_rs10000
-    #2023-10-06 14:20_128x5_tanh_Glorot normal_numdom2000_rs10000
-    #/itf-fi-ml/home/adamjak/heart/MSc/deepxDE/experiments/2023-10-06 11:51_128x6_tanh_Glorot normal_numdom2000_rs10000
-    #/itf-fi-ml/home/adamjak/heart/MSc/deepxDE/old_stuff/models/heart_model_64x5_tanh_Glorot normal_mini_t_norm-160000.pt
-    experiment_path = "./experiments/2023-10-06 11:51_128x6_tanh_Glorot normal_numdom2000_rs10000"
+    
+    #2023-10-11 09:30_128x6_tanh_Glorot normal_numdom70000_rs20000
+    experiment_path = "./experiments/2023-10-11 09:30_128x6_tanh_Glorot normal_numdom70000_rs20000"
+    plot_losses(experiment_path)
     config_path = os.path.join(experiment_path,"config.json")
-    #/itf-fi-ml/home/adamjak/heart/MSc/deepxDE/old_stuff/models/heart_model_64x5_tanh_Glorot normal-200000.pt
-    #experiment_path = "./old_stuff/models/heart_model_64x5_tanh_Glorot normal-200000.pt"
-    #pt_file=torch.load(experiment_path)
-    #print(pt_file)
-    #config_path= "config.json"
+    
     config = load_config(config_path)
     model,net,pinn = get_model(config)
     model.compile("adam", lr=config["TRAINING"]["lr_phase1"])
-    model.restore(os.path.join(experiment_path,"model-165000.pt"))
-    #model.restore(experiment_path)
+    model.restore(os.path.join(experiment_path,"model-199000.pt"))
     
-    plot_animation(pinn,model,frames=241,experiment_path=experiment_path,filename="vm_animation.mp4")
-    #plot_animation(pinn,model,frames=121,experiment_path="./old_stuff",filename="vm_animation.mp4")
+    plot_animation(pinn,model,frames=121*3*2,experiment_path=experiment_path,filename="vm_animation.mp4")
+    
     return 0
 
 if __name__ == "__main__":
