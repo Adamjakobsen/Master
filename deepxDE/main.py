@@ -24,59 +24,7 @@ def parse_arguments():
     parser.add_argument('--config', type=str, default="config.json", help='Path to the configuration file.')
     parser.add_argument('--gpu', type=int, default=None, help='GPU ID to use.')
     return parser.parse_args()
-"""
-def load_config(config_path="config.json"):
-    with open(config_path, "r") as f:
-        config = json.load(f)
-    return config
 
-def get_gpu_with_most_memory():
-    # Get the list of all available GPU devices
-    devices = GPUtil.getGPUs()
-    
-    # Check if any GPUs are available
-    if len(devices) == 0:
-        print("No available GPUs.")
-        return None
-    
-    # Sort the devices by available memory
-    devices = sorted(devices, key=lambda x: x.memoryFree, reverse=True)
-    
-    # Get the device with the most free memory
-    best_device = devices[0]
-    
-    print(f"Device ID: {best_device.id}, Free Memory: {best_device.memoryFree} MB")
-    
-    return best_device.id
-
-def make_directory(config):
-    now = datetime.now()
-    now = now.strftime("%Y-%m-%d %H:%M")
-    name = f"{now}_{config['TRAINING']['n_neurons']}x{config['TRAINING']['n_layers']}_{config['TRAINING']['activation']}_{config['TRAINING']['initializer']}_numdom{config['DATA']['num_domain']}_rs{config['DATA']['resampling_period']}"
-    path_directory = os.path.join("./experiments/", name)
-    if not os.path.exists(path_directory):
-        os.makedirs(path_directory)
-    # After path_directory is created
-    with open("temp_path_directory.txt", "w") as f:
-        f.write(path_directory)
-    config['path_directory'] = path_directory
-    save_config(config, path_directory)
-    return path_directory
-
-def save_config(config, path):
-    with open(os.path.join(path, 'config.json'), 'w') as f:
-        json.dump(config, f, indent=4)
-
-def setup_logger(log_file):
-    logging.basicConfig(
-        level=logging.INFO,  # Change to DEBUG for detailed logs
-        format="%(asctime)s [%(levelname)s]: %(message)s",
-        handlers=[
-            logging.FileHandler(log_file),
-            logging.StreamHandler()
-        ]
-    )
-"""
 
 def define_model(config):
     # Load the configuration
@@ -84,10 +32,18 @@ def define_model(config):
     n_layers = config["TRAINING"]["n_layers"]
     activation = config["TRAINING"]["activation"]
     initializer = config["TRAINING"]["initializer"]
+    regularizer = config["TRAINING"]["regularizer"]
     test_size = config["DATA"]["test_size"]
     num_domain = config["DATA"]["num_domain"]
     num_boundary = config["DATA"]["num_boundary"]
     resampling_period = config["DATA"]["resampling_period"]
+    num_test = config["DATA"]["num_test"]
+    num_init= config["DATA"]["num_init"]
+    xy_slice = config["DATA"]["xy_slice"]
+    t_slice = config["DATA"]["t_slice"]
+    isotropic=config["DATA"]["isotropic"]
+    batches=config["DATA"]["batches"]
+    
     
 
     
@@ -100,62 +56,115 @@ def define_model(config):
     pinn = PINN()
 
     # Load the data and scale
-    X, X_boundary, v = pinn.get_data()
+    X_unscaled, X_boundary, v = pinn.get_data(slice_xy=xy_slice, slice_t=t_slice,long=False, isotropic=isotropic)
+    #print size in mb and shape
+    import sys
+    print("Size of X_unscaled: %.3f MB" % (sys.getsizeof(X_unscaled) / 1e6))
+    print("Shape of X_unscaled:", np.shape(X_unscaled))
+    
     scaler = MinMaxScaler()
-    X= scaler.fit_transform(X)
+    X= scaler.fit_transform(X_unscaled)
     # Split the data into training and testing sets (80/20)
     X_train, X_test, v_train, v_test = train_test_split(X, v, test_size=test_size, random_state=42)
     data_list = [X_train, X_test, v_train, v_test]
+    batch_size= int(X_train.shape[0]/batches)
     # Initialize the model
     geomtime = pinn.geotime()
-    observe_v = dde.PointSetBC(X_train, v_train, component=0)
-    ic = pinn.IC(X_train, v_train)
-    bc = pinn.BC(geomtime)
-    input_data = [bc, ic, observe_v]
-    PDE= pinn.pde2d_vm
+    observe_v = dde.PointSetBC(X_train, v_train, component=0,batch_size=batch_size)
+    X_train_unscaled = scaler.inverse_transform(X_train)
+    ic = pinn.IC(X_train, v_train,X_train_unscaled)
+    #bc = pinn.BC(geomtime)
+    input_data = [ observe_v]
+    if isotropic:
+        PDE= pinn.pde2d_vm
+        inputs=[3]
+    else:
+        PDE= pinn.pde2d_conductivities
+        inputs= [7]
+    #print("shape x_tr:",np.shape(X_train[::1000]))
+    print("batch size:", batch_size)
+    first_batch = X_train[:batch_size,:]
+    print("first batch:", first_batch.shape)
     data = dde.data.TimePDE(geomtime,
                             PDE,
                             input_data,
                             num_domain=num_domain,
-                            num_boundary=num_boundary)
-    
-    net = dde.maps.FNN([3] + n_layers * [n_neurons] +
+                            num_boundary=num_boundary,
+                            anchors=X_train
+                            
+                            
+                            )
+    if type(n_neurons) == list:
+        net = dde.maps.FNN(inputs + n_neurons +
+                           [2], activation, initializer)
+    else:
+        net = dde.maps.FNN(inputs + n_layers * [n_neurons] +
                        [2], activation, initializer)
+        
+    #net.regularizer = (regularizer[0], regularizer[1])
     
 
     model = dde.Model(data, net)
     return model,net,pinn,data,geomtime,PDE, save_path,path_directory
 
-def train_model(model, config,save_path,path_directory)-> None:
+def train_model(pinn,model, config,save_path,path_directory)-> None:
     #Phase 1: Train on data only
+    optimizer=config["TRAINING"]["optimizer"]
     lr_phase1 = config["TRAINING"]["lr_phase1"]
     weights1 = config["TRAINING"]["weights1"]
     epochs_phase1 = config["TRAINING"]["epochs_phase1"]
     resampling_period = config["DATA"]["resampling_period"]
-    resampler = dde.callbacks.PDEPointResampler(period=resampling_period,pde_points=True,bc_points=True)
+    batches=config["DATA"]["batches"]
 
+    
+    X, X_boundary, v = pinn.get_data()
+    print("Shape of X", np.shape(X))
+    scaler = MinMaxScaler()
+    X= scaler.fit_transform(X)
+    # Split the data into training and testing sets (80/20)
+    X_train, X_test, v_train, v_test = train_test_split(X, v, test_size=0.8, random_state=42)
+
+    batch_size= int(X_train.shape[0]/batches)
+
+    resampler = dde.callbacks.PDEPointResampler(period=resampling_period,pde_points=True,bc_points=True)
+    save_better = dde.callbacks.ModelCheckpoint(save_path,save_better_only=True,period=2000)
+    
     model.compile("adam", lr=lr_phase1, loss_weights=weights1)
     losshistory, train_state = model.train(
-            iterations=epochs_phase1, model_save_path=save_path,callbacks=[resampler])
-
+            iterations=epochs_phase1,batch_size=batch_size, model_save_path=save_path,callbacks=[resampler,save_better])
     dde.saveplot(losshistory, train_state, issave=True, isplot=True,output_dir=path_directory)
-
+    
     #Phase 2: Train on data, BC, IC and PDE+ODE
     lr_phase2 = config["TRAINING"]["lr_phase2"]
     epochs_phase2 = config["TRAINING"]["epochs_phase2"]
     weights2 = config["TRAINING"]["weights2"]
-    model.compile("adam", lr=lr_phase2, loss_weights=weights2)
+    model.compile(optimizer, lr=lr_phase2, loss_weights=weights2)
     losshistory, train_state = model.train(
-        iterations=epochs_phase2, model_save_path=save_path,callbacks=[resampler])
+        iterations=epochs_phase2,batch_size=batch_size, model_save_path=save_path,callbacks=[resampler,save_better])
     dde.saveplot(losshistory, train_state, issave=True, isplot=True,output_dir=path_directory)
     model.save(save_path)
+    v_pred_test = model.predict(X_test)[:,0]
+    # If they are not 1D, reshape or index them
+    if len(v_test.shape) > 1:
+        v_test = v_test.reshape(-1)
+    if len(v_pred_test.shape) > 1:
+        v_pred_test = v_pred_test.reshape(-1)
+    RMSE = np.sqrt(np.mean((v_test - v_pred_test)**2))
+    step=losshistory.steps[-1]
+    print("step:",step ,"RMSE test", RMSE)
 
 def train_model_adaptive_residual(pinn,model,geomtime,data,pde, config,save_path,path_directory)-> None:
+    X, X_boundary, v = pinn.get_data()
+    scaler = MinMaxScaler()
+    X= scaler.fit_transform(X)
+    # Split the data into training and testing sets (80/20)
+    X_train, X_test, v_train, v_test = train_test_split(X, v, test_size=0.8, random_state=42)
     #Phase 1: Train on data only
     lr_phase1 = config["TRAINING"]["lr_phase1"]
     weights1 = config["TRAINING"]["weights1"]
     epochs_phase1 = config["TRAINING"]["epochs_phase1"]
     resampling_period = config["DATA"]["resampling_period"]
+    err_threshold = config["TRAINING"]["err_threshold"]
     resampler = dde.callbacks.PDEPointResampler(period=resampling_period,pde_points=True,bc_points=True)
 
     model.compile("adam", lr=lr_phase1, loss_weights=weights1)
@@ -163,30 +172,85 @@ def train_model_adaptive_residual(pinn,model,geomtime,data,pde, config,save_path
             iterations=epochs_phase1, model_save_path=save_path,callbacks=[resampler])
 
     dde.saveplot(losshistory, train_state, issave=True, isplot=True,output_dir=path_directory)
+    
     #Adaptive residual based learning
     lr_phase1 = config["TRAINING"]["lr_phase1"]
     weights2 = config["TRAINING"]["weights2"]
     epochs_phase1 = config["TRAINING"]["epochs_phase1"]
+    epochs_phase2=config["TRAINING"]["epochs_phase2"]
     resampling_period = config["DATA"]["resampling_period"]
+    save_best= dde.callbacks.ModelCheckpoint(save_path,save_better_only=True,period=2000)
     resampler = dde.callbacks.PDEPointResampler(period=resampling_period,pde_points=True,bc_points=True)
     X_points_colocation = geomtime.random_points(100000)
+    print(np.shape(X_points_colocation))
+    step=losshistory.steps[-1]
     err=1
-    while err>0.01:
+    while err>err_threshold or int(step)<epochs_phase2:
         f = model.predict(X_points_colocation, operator=pde)
         
         
+        
         err_eq = np.abs(f)
+        
         err = np.mean(np.abs(err_eq))
-        x_id = np.argmax(err_eq)
+        #x_id = np.argmax(err_eq)
+        #Index og 10 largest errors
+        kth_value = -1000
+        x_id = np.argpartition(err_eq[0,:,0], kth_value)[kth_value:]
         print("Mean residual: %.3e" % (err))
-        print("Adding new point:", X_points_colocation[x_id], "\n")
+        #print("Adding new points:", X_points_colocation[x_id], "\n")
         data.add_anchors(X_points_colocation[x_id])
         early_stopping = dde.callbacks.EarlyStopping(min_delta=1e-4, patience=2000)
         model.compile("adam", lr=lr_phase1, loss_weights=weights2)
-        losshistory,train_state=model.train(iterations=10000, disregard_previous_best=True, callbacks=[early_stopping])
+        losshistory,train_state=model.train(iterations=10000, disregard_previous_best=False, callbacks=[early_stopping])
+        
+        v_pred_test = model.predict(X_test)[:,0]
+        # If they are not 1D, reshape or index them
+        if len(v_test.shape) > 1:
+            v_test = v_test.reshape(-1)
+        if len(v_pred_test.shape) > 1:
+            v_pred_test = v_pred_test.reshape(-1)
+        RMSE = np.sqrt(np.mean((v_test - v_pred_test)**2))
+        step=losshistory.steps[-1]
+        print("step:",step ,"RMSE test", RMSE)
+        model.save(save_path)
+        if step>=epochs_phase2:
+            break   
     
     dde.saveplot(losshistory, train_state, issave=True, isplot=True,output_dir=path_directory)
     model.save(save_path)
+    """
+    #RMSE
+    v_pred_test = model.predict(X_test)[:,0]
+    
+    # If they are not 1D, reshape or index them
+    if len(v_test.shape) > 1:
+        v_test = v_test.reshape(-1)
+    if len(v_pred_test.shape) > 1:
+        v_pred_test = v_pred_test.reshape(-1)
+    RMSE = np.sqrt(np.mean((v_test - v_pred_test)**2))
+    print("RMSE test final", RMSE)
+    
+    model.compile("L-BFGS-B")
+    losshistory, train_state = model.train(model_save_path=save_path)
+    model.save(save_path)
+
+    #RMSE
+    X, X_boundary, v = pinn.get_data()
+    scaler = MinMaxScaler()
+    X= scaler.fit_transform(X)
+    # Split the data into training and testing sets (80/20)
+    X_train, X_test, v_train, v_test = train_test_split(X, v, test_size=0.85, random_state=42)
+    v_pred_test = model.predict(X_test)[:,0]
+    
+    # If they are not 1D, reshape or index them
+    if len(v_test.shape) > 1:
+        v_test = v_test.reshape(-1)
+    if len(v_pred_test.shape) > 1:
+        v_pred_test = v_pred_test.reshape(-1)
+    RMSE = np.sqrt(np.mean((v_test - v_pred_test)**2))
+    print("RMSE test L-BFGS", RMSE)
+
     #Phase 2: Train on data, BC, IC and PDE+ODE
     lr_phase2 = config["TRAINING"]["lr_phase2"]
     epochs_phase2 = config["TRAINING"]["epochs_phase2"]
@@ -196,8 +260,9 @@ def train_model_adaptive_residual(pinn,model,geomtime,data,pde, config,save_path
         iterations=epochs_phase2, model_save_path=save_path,callbacks=[resampler])
     dde.saveplot(losshistory, train_state, issave=True, isplot=True,output_dir=path_directory)
     model.save(save_path)
+    """
 
-
+#def train_batches(pinn,model, config,save_path,path_directory)-> None:
 
 
 
@@ -207,7 +272,8 @@ def run_tuning(config):
     # Initialize CUDA and other configurations
     torch.cuda.empty_cache()
     dde.config.set_random_seed(42)
-    dde.config.set_default_float("float32")
+    dde.config.set_default_float("float32") 
+    torch.cuda.set_per_process_memory_fraction(0.9)
     # Set device to argument --gpu
     device = torch.device(f"cuda:{args.gpu}")
     torch.cuda.set_device(device)
@@ -235,7 +301,7 @@ def run_tuning(config):
     X, X_boundary, v = pinn.get_data()
     scaler = MinMaxScaler()
     X= scaler.fit_transform(X)
-    # Split the data into training and testing sets (80/20)
+    # Split the data into training and testing sets 
     X_train, X_test, v_train, v_test = train_test_split(X, v, test_size=config["DATA"]["test_size"], random_state=42)
 
     #Predict on test set
@@ -299,7 +365,7 @@ def main(args):
 
     if args.mode == "train":
         # Train the model
-        train_model(model, config, save_path,path_directory)
+        train_model(pinn,model, config, save_path,path_directory)
     
     elif args.mode == "train_adaptive":
         train_model_adaptive_residual(pinn,model,geomtime,data,PDE, config,save_path,path_directory)
